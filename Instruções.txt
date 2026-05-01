@@ -1,0 +1,82 @@
+CLASSIFICAÇÃO BINÁRIA (NORMAL/ANORMAL)
+
+Os cenários são:
+
+1 - Sinal
+2 - Estatística global do sinal
+3 - Estatística global + estatística antes do pico R
+4 - Estatística global + estatística depois do pico R
+5 - Estatística global + antes + depois
+6 - Sinal + estatística global
+7 - Sinal + estatística global + antes
+8 - Sinal + estatística global + depois
+9 - Sinal + estatística global + antes + depois
+
+Dessa forma conseguimos varias perguntas:
+
+- O sinal bruto sozinho já resolve bem o problema?
+- As estatísticas globais conseguem substituir o sinal ou perdem informação importante?
+- Combinar sinal + estatísticas globais melhora ou é redundante?
+- A região antes do pico R ajuda na classificação?
+- A região depois do pico R ajuda mais do que antes?
+- Antes + depois juntos trazem ganho real ou só repetem informação?
+- Antes vs depois → qual lado carrega mais informação sobre arritmia
+- Global vs local → padrões gerais do batimento ou detalhes ao redor do R são mais relevantes
+- Local isolado vs com sinal → essas features ainda ajudam quando o modelo já vê tudo
+- Quanto cada bloco adiciona em relação ao baseline (Sinal)?
+- Existe ponto de saturação (parou de melhorar mesmo adicionando mais coisa)?
+- Algum conjunto de features não muda praticamente nada no resultado?
+- Existe combinação que piora o desempenho (ruído/overfitting)?
+
+
+DICAS:
+
+- Implemente usando o Optuna
+	- Maximizar o MCC
+	- Implemente o K-fold dentro do optuna usando o Joblib para processamento paralelo
+	- Continue usando o GroupKFold
+	- n_trials = 50
+	- range dos hiperparametros:
+		"learning_rate": trial.suggest_float("learning_rate", 0.0001, 0.3, log=True)
+        	"max_depth": trial.suggest_int("max_depth", 3, 350)
+        	"n_estimators": trial.suggest_int("n_estimators", 50, 300)
+	- Plot os graficos do Optuna (Contorno, Importancia e Histórico) 
+		-> Nativos do Optuna: https://optuna.readthedocs.io/en/stable/reference/visualization/index.html
+	- Use isso como peso para o XGB: scale_pos_weight = num_negativos / num positivos
+		- Considerar classe positiva como:
+			* 1 = anormal (arritmia)
+			* 0 = normal
+
+
+- Se possível, analisar o desempenho entre os casos anormais:
+	- Para cada amostra do teste, pegar a predição do modelo binário (normal vs anormal)
+	- Filtrar apenas os casos que são realmente anormais
+	- Para esses casos, identificar qual tipo de arritmia é
+	- Verificar se o modelo acertou (previu anormal) ou errou (previu normal)
+	- A ideia é calcular, para cada tipo de arritmia, a taxa de acerto e identificar quais são mais fáceis ou mais difíceis para o modelo detectar.
+
+- Salvar
+	- Num arquivo excel (.xlsx) salve os resultados para cada cenário com métricas:
+		- Acurácia
+		- Sensibilidade
+		- Especificidade
+		- Precisao
+		- F1 Score
+		- MCC
+		- AUC ROC
+
+	- Salvar em .parquet um DataFrame onde cada linha é uma amostra.
+		-Colunas:
+			- y_true (rótulo real)
+			- aami_label (tipo de arritmia)
+			- prob_c1 até prob_c9 (probabilidades previstas para cada cenário de ablação)
+		Garantir que a ordem das amostras seja a mesma em todos os cenários.
+	- Para garantir a ordem das amostras:
+		* Fixar seeds para reprodutibilidade (split, modelo e optuna)
+		* Fazer o split (treino/teste) uma única vez com seed fixa
+		* Usar exatamente o mesmo conjunto de teste em todos os cenários
+		* Se possível, incluir um “id” para cada amostra para garantir alinhamento
+		IMPORTANTE: Fazer o split treino/teste apenas uma vez e reutilizar exatamente os mesmos dados em todos os cenários de ablação. 
+		Não realizar o split separadamente para cada cenário, mesmo com seed fixa, para garantir que as amostras sejam idênticas e comparáveis.
+		(USE NO MESMO NOTEBOOK/ OU SALVE OS ARQUIVOS DE TREINO E TESTE (sugiro usar o .parquet))
+
