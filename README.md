@@ -22,7 +22,7 @@ Detecção de arritmia em sinais de ECG usando **XGBoost + Optuna**, testando 9 
 
 Classificação **binária**: `0 = normal`, `1 = anormal (arritmia)`.
 
-## ⚙️ Como foi feito
+## Como foi feito
 
 - Otimização de hiperparâmetros com **Optuna** (50 trials, maximizando o **MCC**)
 - **GroupKFold** dentro do Optuna, paralelizado com **Joblib**
